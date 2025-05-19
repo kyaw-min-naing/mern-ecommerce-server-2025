@@ -31,15 +31,15 @@ export const myCache = new NodeCache();
 
 const app = express();
 
-app.use(express.json());
-app.use(morgan("dev"));
 app.use(
   cors({
-    origin: [clientURL],
+    origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
 );
+app.use(express.json());
+app.use(morgan("dev"));
 
 app.get("/", (req, res) => {
   res.send("API is Working with /api/v1");
