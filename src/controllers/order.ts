@@ -1,4 +1,4 @@
-import { myCache } from "../app.js";
+import { redis, redisTTL } from "../app.js";
 import { TryCatch } from "../middlewares/error.js";
 import { Order } from "../models/order.js";
 import { ControllerType, NewOrderRequestBody } from "../types/types.js";
@@ -10,12 +10,14 @@ export const myOrders = TryCatch(async (req, res, next) => {
 
   const key = `my-orders-${user}`;
 
-  let orders = [];
+  let orders;
 
-  if (myCache.has(key)) orders = JSON.parse(myCache.get(key) as string);
+  orders = await redis.get(key);
+
+  if (orders) orders = JSON.parse(orders);
   else {
     orders = await Order.find({ user });
-    myCache.set(key, JSON.stringify(orders));
+    await redis.setex(key, redisTTL, JSON.stringify(orders));
   }
 
   return res.status(200).json({
@@ -27,12 +29,14 @@ export const myOrders = TryCatch(async (req, res, next) => {
 export const allOrders = TryCatch(async (req, res, next) => {
   const key = "all-orders";
 
-  let orders = [];
+  let orders;
 
-  if (myCache.has(key)) orders = JSON.parse(myCache.get(key) as string);
+  orders = await redis.get(key);
+
+  if (orders) orders = JSON.parse(orders);
   else {
     orders = await Order.find().populate("user", "name");
-    myCache.set(key, JSON.stringify(orders));
+    await redis.setex(key, redisTTL, JSON.stringify(orders));
   }
 
   return res.status(200).json({
@@ -44,15 +48,18 @@ export const allOrders = TryCatch(async (req, res, next) => {
 export const getSingleOrder = TryCatch(async (req, res, next) => {
   const { id } = req.params;
   const key = `order-${id}`;
+
   let order;
 
-  if (myCache.has(key)) order = JSON.parse(myCache.get(key) as string);
+  order = await redis.get(key);
+
+  if (order) order = JSON.parse(order);
   else {
     order = await Order.findById(id).populate("user", "name");
 
     if (!order) return next(new ErrorHandler("Order Not Found", 404));
 
-    myCache.set(key, JSON.stringify(order));
+    await redis.setex(key, redisTTL, JSON.stringify(order));
   }
 
   return res.status(200).json({
@@ -90,7 +97,7 @@ export const newOrder: ControllerType<NewOrderRequestBody> = TryCatch(
 
     await reduceStock(orderItems);
 
-    invalidateCache({
+    await invalidateCache({
       product: true,
       order: true,
       admin: true,
@@ -125,7 +132,7 @@ export const processOrder = TryCatch(async (req, res, next) => {
 
   await order.save();
 
-  invalidateCache({
+  await invalidateCache({
     product: false,
     order: true,
     admin: true,
@@ -146,7 +153,7 @@ export const deleteOrder = TryCatch(async (req, res, next) => {
 
   await order.deleteOne();
 
-  invalidateCache({
+  await invalidateCache({
     product: false,
     order: true,
     admin: true,
