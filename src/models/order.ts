@@ -55,18 +55,6 @@ const schema = new mongoose.Schema(
       default: "Processing",
     },
 
-    //
-    // paymentType: {
-    //   type: String,
-    //   required: true,
-    // },
-    // isPaid: {
-    //   type: String,
-    //   required: true,
-    //   default: false,
-    // },
-    //
-
     orderItems: [
       {
         name: String,

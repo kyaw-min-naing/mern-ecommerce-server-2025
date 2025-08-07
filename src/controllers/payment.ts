@@ -16,9 +16,25 @@ export const createPaymentIntent = TryCatch(async (req, res, next) => {
   const {
     items,
     shippingInfo,
-  }: { items: OrderItemType[]; shippingInfo: ShippingInfoType } = req.body;
+    coupon,
+  }: {
+    items: OrderItemType[];
+    shippingInfo: ShippingInfoType | undefined;
+    coupon: string | undefined;
+  } = req.body;
 
   if (!items) return next(new ErrorHandler("Please enter items", 400));
+
+  if (!shippingInfo)
+    return next(new ErrorHandler("Please enter shipping information", 400));
+
+  let discountAmount = 0;
+
+  if (coupon) {
+    const discount = await Coupon.findOne({ code: coupon });
+    if (!discount) return next(new ErrorHandler("Invalid Coupon Code", 400));
+    discountAmount = discount.amount;
+  }
 
   const productIDs = items.map((item) => item.productId);
 
@@ -38,7 +54,7 @@ export const createPaymentIntent = TryCatch(async (req, res, next) => {
 
   const shipping = subtotal > 1000 ? 0 : 120;
 
-  const total = Math.floor(subtotal + tax + shipping);
+  const total = Math.floor(subtotal + tax + shipping - discountAmount);
 
   const paymentIntent = await stripe.paymentIntents.create({
     amount: total * 100,

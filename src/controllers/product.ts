@@ -88,7 +88,10 @@ export const getSingleProduct = TryCatch(async (req, res, next) => {
 
 export const newProduct: ControllerType<NewProductRequestBody> = TryCatch(
   async (req, res, next) => {
-    const { name, category, price, stock, description } = req.body;
+    const { name, category, price, size, stock, description } = req.body;
+
+    const parsedSize = Array.isArray(size) ? size : JSON.parse(size || "[]");
+
     const photos = req.files as Express.Multer.File[] | undefined;
 
     if (!photos) return next(new ErrorHandler("Please add Photo", 400));
@@ -99,7 +102,14 @@ export const newProduct: ControllerType<NewProductRequestBody> = TryCatch(
     if (photos.length > 5)
       return next(new ErrorHandler("You can add up to 5 photos", 400));
 
-    if (!name || !category || !price || !stock || !description)
+    if (
+      !name ||
+      !category ||
+      !price ||
+      !parsedSize.length ||
+      !stock ||
+      !description
+    )
       return next(new ErrorHandler("Please enter All Fields", 400));
 
     const photosURL = await uploadToCloudinary(photos);
@@ -107,6 +117,7 @@ export const newProduct: ControllerType<NewProductRequestBody> = TryCatch(
     await Product.create({
       name,
       price,
+      size: parsedSize,
       description,
       stock,
       category: category.toLowerCase(),
@@ -124,8 +135,10 @@ export const newProduct: ControllerType<NewProductRequestBody> = TryCatch(
 
 export const updateProduct = TryCatch(async (req, res, next) => {
   const { id } = req.params;
-  const { name, category, price, stock, description } = req.body;
+  const { name, category, price, size, stock, description } = req.body;
   const photos = req.files as Express.Multer.File[] | undefined;
+
+  const parsedSize = Array.isArray(size) ? size : JSON.parse(size || "[]");
 
   const product = await Product.findById(id);
 
@@ -147,6 +160,7 @@ export const updateProduct = TryCatch(async (req, res, next) => {
   if (name) product.name = name;
   if (category) product.category = category;
   if (price) product.price = price;
+  if (parsedSize.length) product.size = parsedSize;
   if (stock) product.stock = stock;
   if (description) product.description = description;
 
